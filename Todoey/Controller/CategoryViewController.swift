@@ -7,35 +7,28 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
-    var categories = [Category]()
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    let realm = try! Realm()
+    var categories: Results<Category>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         loadCategories()
     }
-    //MARK: - loadItems
-    func loadCategories(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
-        do {
-            categories = try context.fetch(request)
-            DispatchQueue.main.async {
-                self.tableView.reloadData()
-            }
-        }
-        catch {
-            print("Error fetching context, \(error)")
-        }
+    //MARK: - loadCategories
+    func loadCategories() {
+        categories = realm.objects(Category.self)
+        DispatchQueue.main.async { self.tableView.reloadData() }
     }
     //MARK: - UITableViewDataSource
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+        return categories?.count ?? 1
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        cell.textLabel!.text = categories[indexPath.row].name
+        cell.textLabel!.text = categories?[indexPath.row].name ?? "No Categories Added"
         return cell
     }
     //MARK: - addButtonPressed
@@ -47,11 +40,9 @@ class CategoryViewController: UITableViewController {
             textField = alertTextField
         }
         let action = UIAlertAction(title: "Add Category", style: .default) { _ in
-            let category = Category(context: self.context)
-            category.name = textField.text
-            self.saveCategories()
-
-            self.categories.append(category)
+            let category = Category()
+            category.name = textField.text!
+            self.add(category: category)
             DispatchQueue.main.async {
                 self.tableView.reloadData()
             }
@@ -61,10 +52,12 @@ class CategoryViewController: UITableViewController {
             self.present(alert, animated: true)
         }
     }
-    //MARK: - saveItems
-    func saveCategories() {
+    //MARK: - add
+    func add(category: Category) {
         do {
-            try context.save()
+            try realm.write({
+                realm.add(category)
+            })
         } catch {
             print("Error saving context, \(error)")
         }
@@ -78,7 +71,7 @@ class CategoryViewController: UITableViewController {
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         let destinationVC = segue.destination as! TodoListViewController
         if let indexPath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedCategory = categories[indexPath.row]
+            destinationVC.selectedCategory = categories?[indexPath.row]
         }
     }
 }
