@@ -8,14 +8,25 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController: SwipeTableViewController {
     let realm = try! Realm()
     var categories: Results<Category>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         loadCategories()
+        tableView.rowHeight = 80.0
+        tableView.separatorStyle = .none
+    }
+    override func viewWillAppear(_ animated: Bool) {
+        guard let navigationController = navigationController else { fatalError("Navigation controller does not exist.") }
+        let color = UIColor(hexString: "64D2FF")
+        navigationController.navigationBar.barTintColor = color
+        navigationController.navigationBar.backgroundColor = color
+        navigationController.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController.navigationBar.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
     //MARK: - loadCategories
     func loadCategories() {
@@ -27,8 +38,12 @@ class CategoryViewController: UITableViewController {
         return categories?.count ?? 1
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         cell.textLabel!.text = categories?[indexPath.row].name ?? "No Categories Added"
+        if let color = UIColor(hexString: categories?[indexPath.row].color ?? "1D9BF6") {
+            cell.backgroundColor = color
+            cell.textLabel?.textColor = ContrastColorOf(color, returnFlat: true)
+        }
         return cell
     }
     //MARK: - addButtonPressed
@@ -42,6 +57,7 @@ class CategoryViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Category", style: .default) { _ in
             let category = Category()
             category.name = textField.text!
+            category.color = UIColor.randomFlat().hexValue()
             self.add(category: category)
             DispatchQueue.main.async {
                 self.tableView.reloadData()
@@ -74,4 +90,21 @@ class CategoryViewController: UITableViewController {
             destinationVC.selectedCategory = categories?[indexPath.row]
         }
     }
+
+    override func updateModel(at indexPath: IndexPath) {
+        if let category = self.categories?[indexPath.row] {
+            do {
+                try self.realm.write({
+                    self.realm.delete(category)
+                })
+                //                    DispatchQueue.main.async { self.tableView.reloadData() }
+            } catch {
+                print("Error saving context, \(error)")
+            }
+        }
+    }
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return categories != nil
+    }
+
 }
